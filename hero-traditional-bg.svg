@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 900" preserveAspectRatio="xMidYMax slice">
+  <defs>
+    <linearGradient id="skyOld" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"  stop-color="#F4EEDD"/>
+      <stop offset="32%" stop-color="#F1DFB0"/>
+      <stop offset="58%" stop-color="#E3A75B"/>
+      <stop offset="78%" stop-color="#C1613A"/>
+      <stop offset="100%" stop-color="#8C4225"/>
+    </linearGradient>
+    <radialGradient id="sunGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#FFE9B8" stop-opacity="0.95"/>
+      <stop offset="45%" stop-color="#F3B25C" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#F3B25C" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="groundOld" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#5A2E17"/>
+      <stop offset="100%" stop-color="#33190D"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="700" height="900" fill="url(#skyOld)"/>
+
+  <!-- sun -->
+  <circle cx="380" cy="530" r="180" fill="url(#sunGlow)"/>
+  <circle cx="380" cy="530" r="70" fill="#FFF3D6" opacity="0.9"/>
+
+  <!-- distant flat-top mountain (Kilimanjaro-esque), soft silhouette -->
+  <path d="M0,600 L120,520 L200,555 L300,470 L420,545 L520,510 L700,590 L700,650 L0,650 Z"
+        fill="#7A3F27" opacity="0.55"/>
+
+  <!-- birds -->
+  <g stroke="#5A2E17" stroke-width="3" fill="none" opacity="0.6" stroke-linecap="round">
+    <path d="M120,220 q10,-14 20,0 q10,-14 20,0"/>
+    <path d="M170,260 q8,-11 16,0 q8,-11 16,0"/>
+    <path d="M90,300 q7,-10 14,0 q7,-10 14,0"/>
+  </g>
+
+  <!-- rolling ground -->
+  <path d="M0,650 C120,610 220,690 350,650 C480,610 580,680 700,640 L700,900 L0,900 Z"
+        fill="url(#groundOld)"/>
+
+  <!-- acacia tree, near the seam -->
+  <g transform="translate(500,540)">
+    <path d="M0,340 L4,140" stroke="#241108" stroke-width="10" stroke-linecap="round"/>
+    <path d="M0,220 L-40,180 M4,190 L44,150" stroke="#241108" stroke-width="7" stroke-linecap="round"/>
+    <ellipse cx="0" cy="120" rx="150" ry="34" fill="#241108"/>
+    <ellipse cx="-60" cy="105" rx="70" ry="20" fill="#241108"/>
+    <ellipse cx="70" cy="100" rx="80" ry="22" fill="#241108"/>
+  </g>
+
+  <!-- grass tufts along the very bottom -->
+  <g stroke="#1F0F08" stroke-width="3" stroke-linecap="round" opacity="0.7">
+    <path d="M40,895 q4,-22 10,0"/>
+    <path d="M90,898 q5,-26 11,0"/>
+    <path d="M150,895 q4,-20 9,0"/>
+    <path d="M610,896 q4,-24 9,0"/>
+    <path d="M660,895 q5,-22 10,0"/>
+  </g>
+</svg>

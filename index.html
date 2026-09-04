@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mwesh — Poems by Emmanuel Mwendwa</title>
+<meta name="description" content="Poems, recitation, and collaborative writing by Emmanuel Mwendwa, also known as Mweshimiwa or Mwesh.">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Space+Grotesk:wght@400;500;600;700&family=Source+Serif+4:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- ============ HERO : the seam ============ -->
+<header class="hero">
+  <div class="hero-half hero-old">
+    <span class="eyebrow">mĩario ya tene · the old telling</span>
+    <h1 class="ink-title">Mweshimiwa</h1>
+    <p class="ink-sub">Poems written the way elders speak — slow, and meant to be believed.</p>
+  </div>
+
+  <div class="seam" aria-hidden="true">
+    <svg viewBox="0 0 40 800" preserveAspectRatio="none" class="seam-svg">
+      <path d="M20,0 C35,80 5,160 20,240 C35,320 5,400 20,480 C35,560 5,640 20,720 C30,760 15,780 20,800"
+            fill="none" stroke="url(#seamGrad)" stroke-width="2"/>
+      <defs>
+        <linearGradient id="seamGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#C9A227"/>
+          <stop offset="1" stop-color="#2F6F62"/>
+        </linearGradient>
+      </defs>
+    </svg>
+  </div>
+
+  <div class="hero-half hero-new">
+    <span class="eyebrow">// current build</span>
+    <h1 class="code-title">MWESH<span class="cursor">_</span></h1>
+    <p class="code-sub">Same voice, running on new hardware.</p>
+  </div>
+
+  <div class="hero-portrait-wrap" aria-label="The Heart poetry collection">
+    <div class="hero-portrait-frame">
+      <img src="book-cover.svg" alt="The Heart poetry collection by Emmanuel Mwendwa" class="hero-portrait">
+    </div>
+  </div>
+</header>
+
+<div class="scroll-progress" id="scroll-progress"></div>
+
+<nav class="topnav" aria-label="Main navigation">
+  <span class="brand">Mwesh</span>
+  <button class="nav-toggle" id="nav-toggle" aria-expanded="false" aria-controls="nav-links">
+    <span></span><span></span><span></span>
+  </button>
+  <div class="nav-links" id="nav-links">
+    <a href="#poems">Poems</a>
+    <a href="#book">The Heart</a>
+    <a href="#write-with-me">Write with me</a>
+    <a href="#recite">Recite</a>
+    <a href="#rights">Rights</a>
+  </div>
+</nav>
+
+<!-- ============ ABOUT / STATEMENT ============ -->
+<section class="statement reveal">
+  <p>I write as <strong>Mweshimiwa</strong> — friends just call me <strong>Mwesh</strong>. Some of what's
+  here sounds like something an elder would say. Some of it sounds like it was typed at midnight on a phone
+  with 12% battery. Both are mine, so this site is built half like an old page and half like a terminal
+  instead of picking one. I built it myself, poems and all, so if something looks unfinished, it probably is
+  — I'm still adding to it.</p>
+</section>
+
+<!-- ============ POEMS ============ -->
+<section id="poems" class="poems reveal">
+  <h2 class="section-title">Poems</h2>
+  <p class="section-sub">A few of mine, up here as I go. Each one's got its own copyright line — if you copy the words out, that line doesn't come with them, but the ownership still does.</p>
+
+  <div class="poem-grid" id="poem-grid">
+    <!-- poem cards injected by script.js from POEMS array -->
+  </div>
+</section>
+
+<!-- ============ BOOK ============ -->
+<section id="book" class="book reveal">
+  <div class="book-cover-wrap">
+    <img src="book-cover.svg" alt="Cover of The Heart, a poetry collection by Emmanuel Mwendwa, AKA Mweshimiwa" class="book-cover">
+  </div>
+  <div class="book-copy">
+    <span class="eyebrow">the collection</span>
+    <h2>The Heart</h2>
+    <p>This is the full book — everything from here plus a lot that isn't posted yet. I'm still working out
+    printing vs. selling it as a PDF first, so nothing's live yet. Drop your email below and I'll let you
+    know the day it is.</p>
+    <form class="notify-form" id="notify-form">
+      <label for="notify-email">Get notified when it's for sale</label>
+      <div class="notify-row">
+        <input type="email" id="notify-email" placeholder="you@example.com" required>
+        <button type="submit">Notify me</button>
+      </div>
+      <p class="notify-status" id="notify-status" aria-live="polite"></p>
+    </form>
+    <p class="buy-note">(Buy link goes here once I've picked a store.)</p>
+  </div>
+</section>
+
+<!-- ============ WRITE WITH ME (interactive stanza) ============ -->
+<section id="write-with-me" class="collab reveal">
+  <h2 class="section-title">Write a stanza with me</h2>
+  <p class="section-sub">Drop a line or a stanza and I'll (well, the model will) add the next one. Go back and forth as long as you want.</p>
+
+  <div class="collab-box">
+    <div class="collab-thread" id="collab-thread" aria-live="polite"></div>
+    <div class="collab-input-row">
+      <textarea id="collab-input" rows="2" placeholder="Write the next line..."></textarea>
+      <button type="button" id="collab-send">Continue →</button>
+    </div>
+    <p class="collab-hint" id="collab-hint">Loading Mwesh's local neural model…</p>
+  </div>
+</section>
+
+<!-- ============ RECITE ============ -->
+<section id="recite" class="recite reveal">
+  <h2 class="section-title">Have it read back to you</h2>
+  <p class="section-sub">Write or paste a poem and hit play. It reads line by line, in your own browser — nothing gets sent anywhere, so it stays as private as a notebook.</p>
+
+  <div class="recite-box">
+    <textarea id="recite-input" rows="7" placeholder="Write or paste a poem here...">The river keeps the names we forget to say out loud,
+carries them past the bridge, past the last matatu stage,
+and still comes back every rain season, asking.</textarea>
+
+    <div class="recite-controls">
+      <button id="recite-play">▶ Recite</button>
+      <button id="recite-stop">■ Stop</button>
+      <label class="dial">Voice
+        <select id="recite-voice"></select>
+      </label>
+      <label class="dial">Pace
+        <input type="range" id="recite-rate" min="0.55" max="1.1" step="0.05" value="0.78">
+      </label>
+      <label class="dial">Pitch
+        <input type="range" id="recite-pitch" min="0.7" max="1.3" step="0.05" value="0.95">
+      </label>
+    </div>
+
+    <div class="poem-display" id="poem-display" aria-live="off"></div>
+  </div>
+</section>
+
+<!-- ============ RIGHTS ============ -->
+<section id="rights" class="rights reveal">
+  <h2 class="section-title">On rights</h2>
+  <p>Everything here is mine the moment I write it — putting it on a website doesn't change that. Please
+  don't repost a whole poem or use it commercially without asking me first. Quoting a few lines with credit
+  and a link back is fine.</p>
+</section>
+
+<footer class="site-footer">
+  <p>© <span id="year"></span> Emmanuel Mwendwa — Mweshimiwa / Mwesh. All rights reserved.</p>
+</footer>
+
+<script src="nn-engine.js"></script>
+<script src="script.js"></script>
+</body>
+</html>

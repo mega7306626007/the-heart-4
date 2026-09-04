@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 900" preserveAspectRatio="xMidYMax slice">
+  <defs>
+    <linearGradient id="skyNew" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"  stop-color="#12151A"/>
+      <stop offset="35%" stop-color="#1C2027"/>
+      <stop offset="62%" stop-color="#3A3040"/>
+      <stop offset="82%" stop-color="#6B3E3A"/>
+      <stop offset="100%" stop-color="#20140F"/>
+    </linearGradient>
+    <radialGradient id="moonGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#EAF6EF" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#EAF6EF" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="skylineFade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0B0C0E"/>
+      <stop offset="100%" stop-color="#050506"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="700" height="900" fill="url(#skyNew)"/>
+
+  <!-- moon (crescent, via one circle biting into another) -->
+  <circle cx="190" cy="210" r="110" fill="url(#moonGlow)"/>
+  <circle cx="190" cy="210" r="68" fill="#EAF6EF" opacity="0.92"/>
+  <circle cx="163" cy="196" r="60" fill="#171A20"/>
+
+  <!-- stars -->
+  <g fill="#EAF6EF" opacity="0.7">
+    <circle cx="80" cy="120" r="2"/>
+    <circle cx="320" cy="90" r="1.6"/>
+    <circle cx="420" cy="180" r="2"/>
+    <circle cx="140" cy="300" r="1.4"/>
+    <circle cx="500" cy="260" r="1.6"/>
+    <circle cx="600" cy="150" r="2"/>
+  </g>
+
+  <!-- skyline silhouette -->
+  <g fill="url(#skylineFade)">
+    <rect x="20"  y="560" width="70"  height="340"/>
+    <rect x="100" y="480" width="55"  height="420"/>
+    <rect x="165" y="610" width="60"  height="290"/>
+    <rect x="235" y="430" width="80"  height="470"/>
+    <rect x="325" y="540" width="50"  height="360"/>
+    <rect x="385" y="500" width="65"  height="400"/>
+    <rect x="460" y="580" width="55"  height="320"/>
+    <rect x="525" y="450" width="75"  height="450"/>
+    <rect x="610" y="560" width="45"  height="340"/>
+    <rect x="660" y="600" width="40"  height="300"/>
+  </g>
+  <!-- antenna on the tallest tower -->
+  <line x1="272" y1="430" x2="272" y2="390" stroke="#0B0C0E" stroke-width="4"/>
+  <circle cx="272" cy="386" r="4" fill="#C9A227" opacity="0.8"/>
+
+  <!-- lit windows, sparse -->
+  <g fill="#C9A227" opacity="0.75">
+    <rect x="35" y="590" width="6" height="8"/>
+    <rect x="55" y="640" width="6" height="8"/>
+    <rect x="115" y="520" width="6" height="8"/>
+    <rect x="255" y="470" width="6" height="8"/>
+    <rect x="255" y="520" width="6" height="8"/>
+    <rect x="400" y="540" width="6" height="8"/>
+    <rect x="540" y="490" width="6" height="8"/>
+    <rect x="540" y="560" width="6" height="8"/>
+    <rect x="625" y="600" width="6" height="8"/>
+  </g>
+  <g fill="#45A98F" opacity="0.6">
+    <rect x="70" y="610" width="6" height="8"/>
+    <rect x="290" y="500" width="6" height="8"/>
+    <rect x="470" y="620" width="6" height="8"/>
+    <rect x="560" y="520" width="6" height="8"/>
+  </g>
+</svg>

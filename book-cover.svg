@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 900" font-family="Georgia, 'Times New Roman', serif">
+  <defs>
+    <linearGradient id="topBg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#F4EEDD"/>
+      <stop offset="1" stop-color="#E2D5B8"/>
+    </linearGradient>
+    <linearGradient id="botBg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#232629"/>
+      <stop offset="1" stop-color="#15171A"/>
+    </linearGradient>
+    <linearGradient id="seamLine" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#C9A227"/>
+      <stop offset="1" stop-color="#45A98F"/>
+    </linearGradient>
+  </defs>
+
+  <!-- split background -->
+  <rect x="0" y="0" width="600" height="470" fill="url(#topBg)"/>
+  <rect x="0" y="470" width="600" height="430" fill="url(#botBg)"/>
+  <rect x="0" y="465" width="600" height="10" fill="url(#seamLine)"/>
+
+  <!-- faint traditional linework, top half: hand-drawn crosshatch heart, left side -->
+  <g stroke="#A64B2A" stroke-width="2" fill="none" opacity="0.85">
+    <path d="M300 250
+             C 260 190, 170 200, 160 270
+             C 150 340, 220 390, 300 460
+             C 380 390, 450 340, 440 270
+             C 430 200, 340 190, 300 250 Z"/>
+  </g>
+  <!-- crosshatch texture inside heart, top half only, clipped -->
+  <clipPath id="heartClipTop">
+    <path d="M300 250 C 260 190, 170 200, 160 270 C 150 340, 220 390, 300 460 C 380 390, 450 340, 440 270 C 430 200, 340 190, 300 250 Z"/>
+  </clipPath>
+  <g clip-path="url(#heartClipTop)" stroke="#A64B2A" stroke-width="1" opacity="0.35">
+    <line x1="150" y1="220" x2="450" y2="220"/>
+    <line x1="150" y1="240" x2="450" y2="240"/>
+    <line x1="150" y1="260" x2="450" y2="260"/>
+    <line x1="150" y1="280" x2="450" y2="280"/>
+    <line x1="150" y1="300" x2="450" y2="300"/>
+    <line x1="150" y1="320" x2="450" y2="320"/>
+    <line x1="150" y1="340" x2="450" y2="340"/>
+    <line x1="150" y1="360" x2="450" y2="360"/>
+    <line x1="150" y1="380" x2="450" y2="380"/>
+    <line x1="150" y1="400" x2="450" y2="400"/>
+    <line x1="150" y1="420" x2="450" y2="420"/>
+  </g>
+
+  <!-- modern half: same heart re-drawn as a faceted, low-poly silhouette -->
+  <g stroke="#45A98F" stroke-width="2.5" fill="none" stroke-linejoin="round">
+    <path d="M300 605
+             L 258 565 L 210 578 L 196 622 L 222 668
+             L 300 750
+             L 378 668 L 404 622 L 390 578 L 342 565 Z"/>
+  </g>
+  <g stroke="#C9A227" stroke-width="1" opacity="0.5">
+    <line x1="300" y1="605" x2="300" y2="750"/>
+    <line x1="222" y1="668" x2="378" y2="668"/>
+    <line x1="196" y1="622" x2="404" y2="622"/>
+  </g>
+
+  <!-- title -->
+  <text x="300" y="110" text-anchor="middle" font-size="64" fill="#1B1B1B" letter-spacing="2">THE</text>
+  <text x="300" y="180" text-anchor="middle" font-size="72" fill="#A64B2A" font-weight="bold" letter-spacing="2">HEART</text>
+
+  <!-- author -->
+  <text x="300" y="830" text-anchor="middle" font-family="'Space Grotesk','Segoe UI',sans-serif" font-size="26" fill="#EFE6D3" letter-spacing="1">EMMANUEL MWENDWA</text>
+  <text x="300" y="865" text-anchor="middle" font-family="'Space Grotesk','Segoe UI',sans-serif" font-size="18" fill="#45A98F" letter-spacing="3">MWESHIMIWA · MWESH</text>
+</svg>
