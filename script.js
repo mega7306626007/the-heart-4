@@ -643,6 +643,29 @@ function escapeHTML(str){
 
 renderPoems();
 
+/* ============================================================
+   SCROLL REVEAL — registered EARLY and guarded so the page can
+   never stay stuck hidden (opacity:0) because of an error in a
+   feature further down this file.
+   ============================================================ */
+function setupScrollReveal(){
+  const revealItems = document.querySelectorAll('.reveal');
+  if('IntersectionObserver' in window && revealItems.length){
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if(entry.isIntersecting){
+          entry.target.classList.add('in-view');
+          io.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.15 });
+    revealItems.forEach(el => io.observe(el));
+  } else {
+    revealItems.forEach(el => el.classList.add('in-view'));
+  }
+}
+setupScrollReveal();
+
 /* ---------- NOTIFY FORM (placeholder — wire to your own list) ---------- */
 document.getElementById('notify-form').addEventListener('submit', (e) => {
   e.preventDefault();
@@ -729,6 +752,10 @@ const reciteRate = document.getElementById('recite-rate');
 const recitePitch = document.getElementById('recite-pitch');
 const reciteVoiceSelect = document.getElementById('recite-voice');
 const poemDisplay = document.getElementById('poem-display');
+
+// The whole recitation feature is guarded: if the browser has no
+// speechSynthesis (or it throws), the rest of the page still works.
+try{
 
 let availableVoices = [];
 let reciteQueue = [];
@@ -834,6 +861,9 @@ document.getElementById('recite-stop').addEventListener('click', () => {
   isReciting = false;
   poemDisplay.querySelectorAll('.p-line.active').forEach(el => el.classList.remove('active'));
 });
+} catch(err){
+  /* recitation unavailable — poems, collab, and the rest still work */
+}
 
 /* ---------- mobile nav toggle ---------- */
 const navToggle = document.getElementById('nav-toggle');
@@ -859,22 +889,6 @@ function updateScrollProgress(){
 }
 window.addEventListener('scroll', updateScrollProgress, { passive: true });
 updateScrollProgress();
-
-/* ---------- scroll reveal ---------- */
-const revealItems = document.querySelectorAll('.reveal');
-if('IntersectionObserver' in window && revealItems.length){
-  const io = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-      if(entry.isIntersecting){
-        entry.target.classList.add('in-view');
-        io.unobserve(entry.target);
-      }
-    });
-  }, { threshold: 0.15 });
-  revealItems.forEach(el => io.observe(el));
-} else {
-  revealItems.forEach(el => el.classList.add('in-view'));
-}
 
 /* ---------- nav active-link scroll spy ---------- */
 const navLinks = document.querySelectorAll('.topnav a[href^="#"]');

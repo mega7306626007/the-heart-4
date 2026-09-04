@@ -86,46 +86,86 @@ class MweshNeuralEngine {
     return scores;
   }
 
-  sample(scores, temperature = 0.75) {
-    const scaled = Array.from(scores, score => score / temperature);
-    const maxScore = Math.max(...scaled);
-    const probabilities = scaled.map(score => Math.exp(score - maxScore));
-    const total = probabilities.reduce((sum, value) => sum + value, 0);
-    let target = Math.random() * total;
-    for(let index = 0; index < probabilities.length; index++) {
-      target -= probabilities[index];
-      if(target <= 0) return index;
-    }
-    return probabilities.length - 1;
-  }
-
-  generate(history, maxCharacters = 180) {
-    const state = {
+  freshState() {
+    return {
       hidden: [new Float32Array(this.hiddenDim), new Float32Array(this.hiddenDim)],
       cell: [new Float32Array(this.hiddenDim), new Float32Array(this.hiddenDim)]
     };
-    const context = history.join('\n').slice(-500);
-    for(const char of context) this.advance(char, state);
+  }
 
+  sampleTopP(scores, temperature, topP) {
+    const scaled = Array.from(scores, score => score / temperature);
+    const maxScore = Math.max(...scaled);
+    const weights = scaled.map(score => Math.exp(score - maxScore));
+    const total = weights.reduce((sum, value) => sum + value, 0);
+    const order = weights
+      .map((weight, index) => [weight / total, index])
+      .sort((a, b) => b[0] - a[0]);
+    const kept = [];
+    let mass = 0;
+    for(const [probability, index] of order){
+      kept.push(index);
+      mass += probability;
+      if(mass >= topP) break;
+    }
+    const keptMass = kept.reduce((sum, index) => sum + weights[index] / total, 0);
+    let target = Math.random() * keptMass;
+    for(const index of kept){
+      target -= weights[index] / total;
+      if(target <= 0) return index;
+    }
+    return kept[kept.length - 1];
+  }
+
+  endsPunctuation(text) {
+    const last = text.replace(/\s+$/, '').slice(-1);
+    return '.!?;—…'.includes(last);
+  }
+
+  draftLine(context, temperature) {
+    const state = this.freshState();
+    for(const char of context) this.advance(char, state);
     let output = '';
-    let generatedNewline = false;
-    for(let step = 0; step < maxCharacters; step++) {
-      const index = this.sample(this.logits(state.hidden[1]));
+    for(let step = 0; step < 260; step++){
+      const index = this.sampleTopP(this.logits(state.hidden[1]), temperature, 0.9);
       const char = this.itos[String(index)] ?? ' ';
-      if(char === '\n') {
-        if(output.trim().length >= 12) {
-          generatedNewline = true;
-          break;
-        }
+      if(char === '\n'){
+        if(output.trim().length >= 14 && this.endsPunctuation(output)) break;
         continue;
       }
-      const recent = output.slice(-6);
+      const recent = output.slice(-4);
       if(recent.length >= 4 && recent.split('').every(previous => previous === char)) continue;
       output += char;
       this.advance(char, state);
-      if(generatedNewline) break;
+      if(output.length >= 170 && this.endsPunctuation(output)) break;
     }
-    return output.trim();
+    return output.replace(/[\s,;:]+$/, '').trim();
+  }
+
+  scoreLine(line) {
+    const text = line.trim();
+    if(text.length < 14) return -1000;
+    if(!/\s/.test(text)) return -1000;
+    if(/(.)\1{5,}/.test(text)) return -500;
+    let score = 0;
+    if(this.endsPunctuation(text)) score += 30;
+    score += Math.max(0, 25 - Math.abs(58 - text.length));
+    score += Math.max(0, 12 - Math.abs(9 - text.split(/\s+/).length));
+    return score;
+  }
+
+  generate(history, options = {}) {
+    const context = (history || []).join('\n').slice(-500);
+    const attempts = options.attempts || 5;
+    let best = null;
+    for(let attempt = 0; attempt < attempts; attempt++){
+      const temperature = 0.6 + (attempt % 3) * 0.13;
+      const line = this.draftLine(context, temperature);
+      const score = this.scoreLine(line);
+      if(score === -1000) continue;
+      if(!best || score > best.score) best = { line, score };
+    }
+    return best ? best.line : this.draftLine(context, 0.7);
   }
 }
 
