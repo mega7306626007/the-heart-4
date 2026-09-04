@@ -14,6 +14,11 @@ class MweshNeuralEngine {
         new Float32Array(weights, tensor.offset, tensor.length)
       ])
     );
+    this.poemLines = [];
+  }
+
+  setPoemLines(lines) {
+    this.poemLines = lines.filter(l => l.trim().length >= 8);
   }
 
   static async load() {
@@ -158,6 +163,13 @@ class MweshNeuralEngine {
     const context = (history || []).join('\n').slice(-500);
     const attempts = options.attempts || 5;
     let best = null;
+
+    const poemCandidates = this.findPoemCandidates(context, 3);
+    for(const line of poemCandidates) {
+      const score = this.scoreLine(line) + 10;
+      if(!best || score > best.score) best = { line, score };
+    }
+
     for(let attempt = 0; attempt < attempts; attempt++){
       const temperature = 0.6 + (attempt % 3) * 0.13;
       const line = this.draftLine(context, temperature);
@@ -166,6 +178,28 @@ class MweshNeuralEngine {
       if(!best || score > best.score) best = { line, score };
     }
     return best ? best.line : this.draftLine(context, 0.7);
+  }
+
+  findPoemCandidates(context, k) {
+    if(!this.poemLines.length) return [];
+    const ctxWords = this.extractWords(context.toLowerCase().slice(-200));
+    if(!ctxWords.length) return this.poemLines.slice(0, k);
+    const scored = this.poemLines.map(line => {
+      const lineWords = this.extractWords(line.toLowerCase());
+      let overlap = 0;
+      for(const w of lineWords) if(ctxWords.has(w)) overlap++;
+      const recency = this.poemLines.indexOf(line);
+      return { line, score: overlap * 2 - recency * 0.001 };
+    });
+    scored.sort((a, b) => b.score - a.score);
+    return scored.slice(0, k).map(c => c.line);
+  }
+
+  extractWords(text) {
+    const set = new Set();
+    const words = text.match(/[a-z']{3,}/gi) || [];
+    for(const w of words) set.add(w.toLowerCase());
+    return set;
   }
 }
 

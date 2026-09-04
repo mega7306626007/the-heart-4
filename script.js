@@ -694,6 +694,10 @@ mweshNeuralEngineReady.then(engine => {
   collabHint.textContent = engine
     ? "Mwesh's local model is loaded — this runs in your browser only. No API, nothing leaves the page."
     : "The local model files couldn't load from this page. Serve the folder over http (python -m http.server 8000) and reload.";
+  if(engine) {
+    const allLines = POEMS.flatMap(p => p.lines);
+    engine.setPoemLines(allLines);
+  }
 }).catch(() => {
   collabSend.disabled = true;
   collabHint.textContent = "The local model files couldn't load from this page. Serve the folder over http (python -m http.server 8000) and reload.";
