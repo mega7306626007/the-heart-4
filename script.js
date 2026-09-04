@@ -666,6 +666,10 @@ function setupScrollReveal(){
 }
 setupScrollReveal();
 
+setTimeout(() => {
+  document.querySelectorAll('.reveal:not(.in-view)').forEach(el => el.classList.add('in-view'));
+}, 3000);
+
 /* ---------- NOTIFY FORM (placeholder — wire to your own list) ---------- */
 document.getElementById('notify-form').addEventListener('submit', (e) => {
   e.preventDefault();
