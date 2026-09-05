@@ -15,6 +15,7 @@ class MweshNeuralEngine {
       ])
     );
     this.poemLines = [];
+    this.usedLines = new Set();
   }
 
   setPoemLines(lines) {
@@ -164,7 +165,12 @@ class MweshNeuralEngine {
     const attempts = options.attempts || 5;
     let best = null;
 
-    const poemCandidates = this.findPoemCandidates(context, 3);
+    // Exclude lines already used earlier in this session — without this,
+    // once a poem line gets picked, its own words stay in the accumulated
+    // context forever (the bot's past replies are part of history too),
+    // so it keeps scoring highest against itself and repeats endlessly.
+    const poemCandidates = this.findPoemCandidates(context, 6)
+      .filter(line => !this.usedLines.has(line));
     for(const line of poemCandidates) {
       const score = this.scoreLine(line) + 10;
       if(!best || score > best.score) best = { line, score };
@@ -173,11 +179,20 @@ class MweshNeuralEngine {
     for(let attempt = 0; attempt < attempts; attempt++){
       const temperature = 0.6 + (attempt % 3) * 0.13;
       const line = this.draftLine(context, temperature);
+      if(this.usedLines.has(line)) continue;
       const score = this.scoreLine(line);
       if(score === -1000) continue;
       if(!best || score > best.score) best = { line, score };
     }
-    return best ? best.line : this.draftLine(context, 0.7);
+
+    let result = best ? best.line : this.draftLine(context, 0.7);
+    // last-resort safety: if everything collided with a used line, force
+    // one more fresh draft rather than returning a repeat
+    if(this.usedLines.has(result)){
+      result = this.draftLine(context, 0.9);
+    }
+    this.usedLines.add(result);
+    return result;
   }
 
   findPoemCandidates(context, k) {
