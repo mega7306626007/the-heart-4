@@ -183,7 +183,7 @@ class MweshNeuralEngine {
   findPoemCandidates(context, k) {
     if(!this.poemLines.length) return [];
     const ctxWords = this.extractWords(context.toLowerCase().slice(-200));
-    if(!ctxWords.length) return this.poemLines.slice(0, k);
+    if(!ctxWords.size) return this.poemLines.slice(0, k);
     const scored = this.poemLines.map(line => {
       const lineWords = this.extractWords(line.toLowerCase());
       let overlap = 0;
