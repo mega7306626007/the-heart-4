@@ -698,7 +698,9 @@ document.getElementById('notify-form').addEventListener('submit', async (e) => {
     });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(payload.error || 'Request failed');
-    status.textContent = "Thanks — you'll hear from us when The Heart is ready.";
+    status.textContent = payload.existing
+      ? "You're already on the list — you'll hear from me."
+      : "You're on the list. Check your inbox for a welcome message.";
     emailInput.value = '';
   } catch (err) {
     status.textContent = "Sorry, that didn't save. Please try again.";
