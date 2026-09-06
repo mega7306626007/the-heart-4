@@ -1,8 +1,6 @@
-import { kv } from '@vercel/kv';
+import { put, get, head } from '@vercel/blob';
 
-export const config = { runtime: 'edge' };
-
-const KEY = 'notify:emails';
+const EMAIL_PATH = 'emails.json';
 
 function isEmail(value) {
   return typeof value === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim()) && value.trim().length <= 254;
@@ -45,21 +43,36 @@ export default async function handler(req) {
     });
   }
 
-  const createdAt = new Date().toISOString();
   try {
-    const current = (await kv.get(KEY)) || [];
-    if (!Array.isArray(current)) {
-      throw new Error('existing value is corrupt');
+    let existing = [];
+    try {
+      const blob = await head(EMAIL_PATH, { access: 'private' });
+      if (blob) {
+        const response = await get(EMAIL_PATH, { access: 'private' });
+        const raw = await response.text();
+        if (raw.trim()) existing = JSON.parse(raw);
+        if (!Array.isArray(existing)) existing = [];
+      }
+    } catch (error) {
+      if (error && error.code !== 'BLOB_NOT_FOUND' && !String(error?.message || '').toLowerCase().includes('not found')) {
+        throw error;
+      }
+      existing = [];
     }
-    const existing = current.find((entry) => entry && entry.email === email);
-    if (existing) {
-      return new Response(JSON.stringify({ ok: true, existing: true, createdAt: existing.createdAt }), {
+
+    const createdAt = new Date().toISOString();
+    const duplicate = existing.find((entry) => entry && entry.email === email);
+    if (duplicate) {
+      return new Response(JSON.stringify({ ok: true, existing: true, createdAt: duplicate.createdAt }), {
         status: 200,
         headers: { 'Content-Type': 'application/json; charset=utf-8' },
       });
     }
-    const updated = [...current, { email, createdAt }];
-    await kv.set(KEY, updated);
+
+    const updated = [...existing, { email, createdAt }];
+    const json = JSON.stringify(updated);
+    await put(EMAIL_PATH, json, { access: 'private', contentType: 'application/json; charset=utf-8' });
+
     return new Response(JSON.stringify({ ok: true, existing: false, createdAt }), {
       status: 200,
       headers: { 'Content-Type': 'application/json; charset=utf-8' },

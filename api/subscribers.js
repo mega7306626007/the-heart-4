@@ -1,6 +1,6 @@
-import { kv } from '@vercel/kv';
+import { get, head } from '@vercel/blob';
 
-export const config = { runtime: 'edge' };
+const EMAIL_PATH = 'emails.json';
 
 export default async function handler(req) {
   const url = new URL(req.url);
@@ -12,8 +12,13 @@ export default async function handler(req) {
 
   let emails = [];
   try {
-    const stored = await kv.get('notify:emails');
-    emails = Array.isArray(stored) ? stored : [];
+    const blob = await head(EMAIL_PATH, { access: 'private' });
+    if (blob) {
+      const response = await get(EMAIL_PATH, { access: 'private' });
+      const raw = await response.text();
+      if (raw.trim()) emails = JSON.parse(raw);
+      if (!Array.isArray(emails)) emails = [];
+    }
   } catch (error) {
     console.error('subscribers:', error);
     emails = [];
