@@ -7,7 +7,7 @@ async function sendWelcomeEmail(to) {
   const from = process.env.NOTIFY_FROM;
   if (!apiKey || !from) return;
 
-  await fetch('https://api.resend.com/emails', {
+  const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${apiKey}`,
@@ -32,6 +32,10 @@ async function sendWelcomeEmail(to) {
 </html>`,
     }),
   });
+  if (!res.ok) {
+    const detail = await res.text().catch(() => '');
+    console.error('welcome email rejected by Resend:', res.status, detail);
+  }
 }
 
 function isEmail(value) {
