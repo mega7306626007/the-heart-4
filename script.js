@@ -770,21 +770,30 @@ let reciteQueue = [];
 let reciteIndex = 0;
 let isReciting = false;
 
+function voiceQualityScore(v){
+  // Prefer voices that tend to sound less robotic/more expressive:
+  // modern "Natural"/"Neural" builds, macOS "Enhanced"/"Premium" voices,
+  // Google's voices, cloud-served voices, then whatever exists. Covers the
+  // common naming patterns across Windows, macOS, Chrome OS, and Android
+  // — there's no universal "poetic" flag, so name-pattern matching is the
+  // best signal actually exposed by the Web Speech API.
+  const name = v.name.toLowerCase();
+  let score = 0;
+  if(name.includes('natural')) score += 3;
+  if(name.includes('neural')) score += 3;
+  if(name.includes('enhanced')) score += 3;
+  if(name.includes('premium')) score += 3;
+  if(name.includes('plus')) score += 2;
+  if(name.includes('google')) score += 2;
+  if(name.includes('online')) score += 1;
+  if(v.localService === false) score += 1; // often higher-quality cloud voices
+  return score;
+}
+
 function pickBestDefaultVoice(voices){
-  // Prefer voices that tend to sound less robotic: modern "Natural"/
-  // "Neural" builds, Google's voices, then any English voice, then whatever exists.
   const englishVoices = voices.filter(v => v.lang && v.lang.startsWith('en'));
   const pool = englishVoices.length ? englishVoices : voices;
-  const scored = pool.map(v => {
-    const name = v.name.toLowerCase();
-    let score = 0;
-    if(name.includes('natural')) score += 3;
-    if(name.includes('neural')) score += 3;
-    if(name.includes('google')) score += 2;
-    if(name.includes('online')) score += 1;
-    if(v.localService === false) score += 1; // often higher-quality cloud voices
-    return { v, score };
-  });
+  const scored = pool.map(v => ({ v, score: voiceQualityScore(v) }));
   scored.sort((a,b) => b.score - a.score);
   return scored[0] ? scored[0].v : pool[0];
 }
@@ -792,12 +801,24 @@ function pickBestDefaultVoice(voices){
 function populateVoiceList(){
   availableVoices = window.speechSynthesis.getVoices();
   if(!availableVoices.length) return;
-  reciteVoiceSelect.innerHTML = availableVoices
-    .map((v, i) => `<option value="${i}">${v.name} (${v.lang})</option>`)
-    .join('');
   const best = pickBestDefaultVoice(availableVoices);
+  reciteVoiceSelect.innerHTML = availableVoices
+    .map((v, i) => {
+      const tag = (v === best && voiceQualityScore(v) > 0) ? ' — recommended' : '';
+      return `<option value="${i}">${v.name} (${v.lang})${tag}</option>`;
+    })
+    .join('');
   const bestIndex = availableVoices.indexOf(best);
   if(bestIndex > -1) reciteVoiceSelect.value = String(bestIndex);
+  // If nothing scored above 0, every available voice is a basic/robotic
+  // system default — say so plainly rather than silently picking one.
+  const anyGoodVoice = availableVoices.some(v => voiceQualityScore(v) > 0);
+  const voiceNote = document.getElementById('voice-quality-note');
+  if(voiceNote){
+    voiceNote.textContent = anyGoodVoice
+      ? ''
+      : "These are your system's basic voices — for a more expressive one: on Mac, System Settings → Accessibility → Spoken Content → System Voice → download an Enhanced/Premium voice. On Windows, Settings → Time & Language → Speech → add a Natural voice.";
+  }
 }
 populateVoiceList();
 if('onvoiceschanged' in window.speechSynthesis){

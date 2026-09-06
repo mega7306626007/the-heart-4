@@ -1,4 +1,15 @@
 /* Local character-level LSTM inference for the Mwesh writing tool. */
+const COMMON_ENGLISH_WORDS = new Set([
+  "the","and","of","a","to","in","is","was","it","that","he","she","we","they",
+  "you","i","this","but","not","with","for","on","at","by","as","are","be","been",
+  "from","has","have","had","will","would","could","should","do","does","did","so",
+  "if","or","no","yes","all","some","any","more","most","than","then","when","where",
+  "what","who","which","how","why","there","here","now","still","just","only","even",
+  "also","its","it's","my","your","his","her","our","their","me","him","us","them",
+  "one","two","first","last","own","same","other","such","an","can","into","out","up",
+  "down","over","under","again","once","too","very","about","after","before","between"
+]);
+
 class MweshNeuralEngine {
   constructor(manifest, weights) {
     this.manifest = manifest;
@@ -16,10 +27,21 @@ class MweshNeuralEngine {
     );
     this.poemLines = [];
     this.usedLines = new Set();
+    this.knownWords = new Set();
   }
 
   setPoemLines(lines) {
     this.poemLines = lines.filter(l => l.trim().length >= 8);
+    // Build a reference vocabulary from your real poems, so generated
+    // lines can be scored on how much of their language is real English
+    // the model actually learned well, vs invented/garbled fragments —
+    // this is what lets best-of-N selection reliably prefer the more
+    // coherent draft instead of just the right-length one.
+    this.knownWords = new Set();
+    for(const line of this.poemLines){
+      const words = line.toLowerCase().match(/[a-z']+/g) || [];
+      for(const w of words) this.knownWords.add(w);
+    }
   }
 
   static async load() {
@@ -155,8 +177,21 @@ class MweshNeuralEngine {
     if(/(.)\1{5,}/.test(text)) return -500;
     let score = 0;
     if(this.endsPunctuation(text)) score += 30;
-    score += Math.max(0, 25 - Math.abs(58 - text.length));
-    score += Math.max(0, 12 - Math.abs(9 - text.split(/\s+/).length));
+    // No clamping here on purpose: an extremely long, rambling draft should
+    // score clearly worse than a reasonable one, not just neutral — a flat
+    // floor of 0 let a few very long run-on outputs slip through as
+    // 'no better, no worse' when nothing else beat them.
+    score += (25 - Math.abs(58 - text.length));
+    score += (12 - Math.abs(9 - text.split(/\s+/).length));
+
+    // Penalize lines heavy with words the model never really learned —
+    // the clearest signal for the char-LSTM's occasional word-salad output.
+    const words = text.toLowerCase().match(/[a-z']+/g) || [];
+    if(words.length){
+      const known = words.filter(w => this.knownWords.has(w) || COMMON_ENGLISH_WORDS.has(w)).length;
+      const unknownRatio = 1 - (known / words.length);
+      score -= unknownRatio * 70;
+    }
     return score;
   }
 
