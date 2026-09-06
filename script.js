@@ -670,13 +670,43 @@ setTimeout(() => {
   document.querySelectorAll('.reveal:not(.in-view)').forEach(el => el.classList.add('in-view'));
 }, 3000);
 
-/* ---------- NOTIFY FORM (placeholder — wire to your own list) ---------- */
-document.getElementById('notify-form').addEventListener('submit', (e) => {
+/* ---------- NOTIFY FORM (Vercel KV) ---------- */
+document.getElementById('notify-form').addEventListener('submit', async (e) => {
   e.preventDefault();
+  const form = e.target;
   const status = document.getElementById('notify-status');
-  // TODO: replace with a real request to your mailing list / form backend
-  status.textContent = "Thanks — you'll hear from us when The Heart is ready.";
-  e.target.reset();
+  const emailInput = document.getElementById('notify-email');
+  const email = emailInput.value.trim();
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    status.textContent = 'Please enter a valid email address.';
+    status.style.color = '#E0764B';
+    return;
+  }
+
+  const button = form.querySelector('button[type="submit"]');
+  const original = button.textContent;
+  button.disabled = true;
+  button.textContent = 'Saving…';
+  status.style.color = '';
+
+  try {
+    const response = await fetch('/api/subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.error || 'Request failed');
+    status.textContent = "Thanks — you'll hear from us when The Heart is ready.";
+    emailInput.value = '';
+  } catch (err) {
+    status.textContent = "Sorry, that didn't save. Please try again.";
+    status.style.color = '#E0764B';
+  } finally {
+    button.disabled = false;
+    button.textContent = original;
+  }
 });
 
 /* ---------- WRITE WITH ME — local neural continuation ---------- */

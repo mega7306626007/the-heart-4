@@ -1,0 +1,11 @@
+{
+  "name": "mwesh-the-heart",
+  "private": true,
+  "version": "1.0.0",
+  "engines": {
+    "node": "20.x"
+  },
+  "dependencies": {
+    "@vercel/kv": "^3.0.0"
+  }
+}
