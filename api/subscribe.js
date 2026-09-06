@@ -42,7 +42,7 @@ async function readEmails() {
   try {
     const blob = await head(EMAIL_PATH, { access: 'public' });
     if (!blob) return [];
-    const response = await fetch(blob.url);
+    const response = await fetch(blob.url, { cache: 'no-store' });
     if (!response.ok) return [];
     const raw = await response.text();
     if (!raw.trim()) return [];

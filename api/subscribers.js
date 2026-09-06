@@ -1,4 +1,4 @@
-import { head, BlobNotFoundError } from '@vercel/blob';
+import { head, put, BlobNotFoundError } from '@vercel/blob';
 
 const EMAIL_PATH = 'emails.json';
 
@@ -6,7 +6,7 @@ async function readEmails() {
   try {
     const blob = await head(EMAIL_PATH, { access: 'public' });
     if (!blob) return [];
-    const response = await fetch(blob.url);
+    const response = await fetch(blob.url, { cache: 'no-store' });
     if (!response.ok) return [];
     const raw = await response.text();
     if (!raw.trim()) return [];
@@ -28,6 +28,19 @@ export async function GET(request) {
   }
 
   const emails = await readEmails();
+
+  const deleteEmail = url.searchParams.get('delete');
+  if (deleteEmail) {
+    const remaining = emails.filter((e) => e.email !== deleteEmail);
+    await put(EMAIL_PATH, JSON.stringify(remaining), {
+      access: 'public',
+      contentType: 'application/json; charset=utf-8',
+      addRandomSuffix: false,
+    });
+    const next = new URL(request.url);
+    next.searchParams.delete('delete');
+    return Response.redirect(next.toString(), 303);
+  }
 
   const sort = url.searchParams.get('sort');
   const sorted = [...emails].sort((a, b) =>
@@ -52,7 +65,9 @@ export async function GET(request) {
       (e) =>
         `<tr><td class="addr">${escapeHtml(e.email)}</td><td>${escapeHtml(
           new Date(e.createdAt).toLocaleString()
-        )}</td></tr>`
+        )}</td><td><a class="del" href="?key=${encodeURIComponent(
+          expected
+        )}&delete=${encodeURIComponent(e.email)}" onclick="return confirm('Remove ${escapeHtml(e.email)}?')">remove</a></td></tr>`
     )
     .join('');
 
@@ -72,6 +87,7 @@ export async function GET(request) {
   th,td{text-align:left;padding:0.6rem 0.5rem;border-bottom:1px solid rgba(27,27,27,0.1);font-size:0.95rem;}
   th{font-size:0.75rem;text-transform:uppercase;letter-spacing:0.06em;opacity:0.6;}
   td.addr{font-weight:600;}
+  .del{color:#E0764B;text-decoration:none;font-size:0.85rem;}
   .actions{display:flex;gap:1rem;margin-top:1.5rem;flex-wrap:wrap;}
   .actions a, .actions button{font:inherit;padding:0.6rem 1rem;border-radius:4px;text-decoration:none;color:#fff;background:#2F6F62;border:none;cursor:pointer;}
   .empty{opacity:0.6;font-style:italic;}
@@ -82,7 +98,7 @@ export async function GET(request) {
   <h1>The Heart — Notify list</h1>
   <p class="count">${emails.length} signup${emails.length === 1 ? '' : 's'} · newest first</p>
   ${emails.length ? `<table>
-    <thead><tr><th>Email</th><th>Subscribed</th></tr></thead>
+    <thead><tr><th>Email</th><th>Subscribed</th><th></th></tr></thead>
     <tbody>${rows}</tbody>
   </table>` : `<p class="empty">No signups yet.</p>`}
   <div class="actions">
