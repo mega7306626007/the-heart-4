@@ -1,28 +1,33 @@
-import { get, head } from '@vercel/blob';
+import { head, BlobNotFoundError } from '@vercel/blob';
 
 const EMAIL_PATH = 'emails.json';
 
-export default async function handler(req) {
-  const url = new URL(req.url);
+async function readEmails() {
+  try {
+    const blob = await head(EMAIL_PATH, { access: 'public' });
+    if (!blob) return [];
+    const response = await fetch(blob.url);
+    if (!response.ok) return [];
+    const raw = await response.text();
+    if (!raw.trim()) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    if (error instanceof BlobNotFoundError) return [];
+    console.error('subscribers:', error);
+    return [];
+  }
+}
+
+export async function GET(request) {
+  const url = new URL(request.url);
   const token = url.searchParams.get('key');
   const expected = process.env.SUBSCRIBERS_KEY;
   if (!expected || token !== expected) {
     return new Response('Unauthorized', { status: 401 });
   }
 
-  let emails = [];
-  try {
-    const blob = await head(EMAIL_PATH, { access: 'private' });
-    if (blob) {
-      const response = await get(EMAIL_PATH, { access: 'private' });
-      const raw = await response.text();
-      if (raw.trim()) emails = JSON.parse(raw);
-      if (!Array.isArray(emails)) emails = [];
-    }
-  } catch (error) {
-    console.error('subscribers:', error);
-    emails = [];
-  }
+  const emails = await readEmails();
 
   const sort = url.searchParams.get('sort');
   const sorted = [...emails].sort((a, b) =>
