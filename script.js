@@ -670,44 +670,56 @@ setTimeout(() => {
   document.querySelectorAll('.reveal:not(.in-view)').forEach(el => el.classList.add('in-view'));
 }, 3000);
 
-/* ---------- NOTIFY FORM (Vercel KV) ---------- */
+/* ============================================================
+   NOTIFY FORM — EmailJS, no backend needed
+   ============================================================
+   Two email templates fire on every signup: one lands in YOUR inbox
+   (so you actually receive who signed up), one lands in THEIRS (a
+   confirmation that they're on the list). Both run from this static
+   page via EmailJS's free tier (200 sends/month, 2 templates included
+   — exactly enough for this).
+
+   Setup (one-time, see README.md for the full walkthrough):
+     1. Create a free account at emailjs.com
+     2. Connect your email (Gmail/Outlook/etc.) as an EmailJS "service"
+     3. Create two templates: one that emails YOU, one that emails the
+        SUBSCRIBER (using {{subscriber_email}} as its "To Email" field)
+     4. Paste your Public Key, Service ID, and both Template IDs below
+   ============================================================ */
+const EMAILJS_PUBLIC_KEY = "YOUR_PUBLIC_KEY";
+const EMAILJS_SERVICE_ID = "YOUR_SERVICE_ID";
+const EMAILJS_OWNER_TEMPLATE_ID = "YOUR_OWNER_TEMPLATE_ID";     // sends to you
+const EMAILJS_CONFIRM_TEMPLATE_ID = "YOUR_CONFIRM_TEMPLATE_ID"; // sends to the subscriber
+
+const emailjsConfigured = EMAILJS_PUBLIC_KEY !== "YOUR_PUBLIC_KEY";
+if(window.emailjs && emailjsConfigured){
+  emailjs.init({ publicKey: EMAILJS_PUBLIC_KEY });
+}
+
 document.getElementById('notify-form').addEventListener('submit', async (e) => {
   e.preventDefault();
-  const form = e.target;
   const status = document.getElementById('notify-status');
-  const emailInput = document.getElementById('notify-email');
-  const email = emailInput.value.trim();
+  const subscriberEmail = document.getElementById('notify-email').value.trim();
+  if(!subscriberEmail) return;
 
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    status.textContent = 'Please enter a valid email address.';
-    status.style.color = '#E0764B';
+  if(!window.emailjs || !emailjsConfigured){
+    status.textContent = "Signup isn't connected yet — see README.md to finish setup.";
     return;
   }
 
-  const button = form.querySelector('button[type="submit"]');
-  const original = button.textContent;
-  button.disabled = true;
-  button.textContent = 'Saving…';
-  status.style.color = '';
+  status.textContent = "Sending…";
+  const templateParams = { subscriber_email: subscriberEmail };
 
-  try {
-    const response = await fetch('/api/subscribe', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email }),
-    });
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(payload.error || 'Request failed');
-    status.textContent = payload.existing
-      ? "You're already on the list — you'll hear from me."
-      : "You're on the list. Check your inbox for a welcome message.";
-    emailInput.value = '';
-  } catch (err) {
-    status.textContent = "Sorry, that didn't save. Please try again.";
-    status.style.color = '#E0764B';
-  } finally {
-    button.disabled = false;
-    button.textContent = original;
+  try{
+    await Promise.all([
+      emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_OWNER_TEMPLATE_ID, templateParams),
+      emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_CONFIRM_TEMPLATE_ID, templateParams),
+    ]);
+    status.textContent = "Thanks — you'll hear from us when The Heart is ready.";
+    e.target.reset();
+  } catch(err){
+    console.error('EmailJS send failed:', err);
+    status.textContent = "Something went wrong sending that — please try again.";
   }
 });
 
@@ -802,30 +814,21 @@ let reciteQueue = [];
 let reciteIndex = 0;
 let isReciting = false;
 
-function voiceQualityScore(v){
-  // Prefer voices that tend to sound less robotic/more expressive:
-  // modern "Natural"/"Neural" builds, macOS "Enhanced"/"Premium" voices,
-  // Google's voices, cloud-served voices, then whatever exists. Covers the
-  // common naming patterns across Windows, macOS, Chrome OS, and Android
-  // — there's no universal "poetic" flag, so name-pattern matching is the
-  // best signal actually exposed by the Web Speech API.
-  const name = v.name.toLowerCase();
-  let score = 0;
-  if(name.includes('natural')) score += 3;
-  if(name.includes('neural')) score += 3;
-  if(name.includes('enhanced')) score += 3;
-  if(name.includes('premium')) score += 3;
-  if(name.includes('plus')) score += 2;
-  if(name.includes('google')) score += 2;
-  if(name.includes('online')) score += 1;
-  if(v.localService === false) score += 1; // often higher-quality cloud voices
-  return score;
-}
-
 function pickBestDefaultVoice(voices){
+  // Prefer voices that tend to sound less robotic: modern "Natural"/
+  // "Neural" builds, Google's voices, then any English voice, then whatever exists.
   const englishVoices = voices.filter(v => v.lang && v.lang.startsWith('en'));
   const pool = englishVoices.length ? englishVoices : voices;
-  const scored = pool.map(v => ({ v, score: voiceQualityScore(v) }));
+  const scored = pool.map(v => {
+    const name = v.name.toLowerCase();
+    let score = 0;
+    if(name.includes('natural')) score += 3;
+    if(name.includes('neural')) score += 3;
+    if(name.includes('google')) score += 2;
+    if(name.includes('online')) score += 1;
+    if(v.localService === false) score += 1; // often higher-quality cloud voices
+    return { v, score };
+  });
   scored.sort((a,b) => b.score - a.score);
   return scored[0] ? scored[0].v : pool[0];
 }
@@ -833,24 +836,12 @@ function pickBestDefaultVoice(voices){
 function populateVoiceList(){
   availableVoices = window.speechSynthesis.getVoices();
   if(!availableVoices.length) return;
-  const best = pickBestDefaultVoice(availableVoices);
   reciteVoiceSelect.innerHTML = availableVoices
-    .map((v, i) => {
-      const tag = (v === best && voiceQualityScore(v) > 0) ? ' — recommended' : '';
-      return `<option value="${i}">${v.name} (${v.lang})${tag}</option>`;
-    })
+    .map((v, i) => `<option value="${i}">${v.name} (${v.lang})</option>`)
     .join('');
+  const best = pickBestDefaultVoice(availableVoices);
   const bestIndex = availableVoices.indexOf(best);
   if(bestIndex > -1) reciteVoiceSelect.value = String(bestIndex);
-  // If nothing scored above 0, every available voice is a basic/robotic
-  // system default — say so plainly rather than silently picking one.
-  const anyGoodVoice = availableVoices.some(v => voiceQualityScore(v) > 0);
-  const voiceNote = document.getElementById('voice-quality-note');
-  if(voiceNote){
-    voiceNote.textContent = anyGoodVoice
-      ? ''
-      : "These are your system's basic voices — for a more expressive one: on Mac, System Settings → Accessibility → Spoken Content → System Voice → download an Enhanced/Premium voice. On Windows, Settings → Time & Language → Speech → add a Natural voice.";
-  }
 }
 populateVoiceList();
 if('onvoiceschanged' in window.speechSynthesis){
@@ -863,13 +854,66 @@ function renderPoemDisplay(lines){
     .join('');
 }
 
-function pauseForLine(line){
-  const trimmed = line.trim();
-  if(!trimmed) return 500; // stanza break
+/* ============================================================
+   PROSODY — this is what actually makes a reading sound "poetic"
+   rather than flat: breath points WITHIN a line (not just between
+   lines), pitch that rises on questions and settles on statements,
+   and a slight slowdown on short/weighty fragments for emphasis.
+   The voice itself is capped by what the OS provides, but delivery
+   is fully under our control.
+   ============================================================ */
+
+// Split a line into clause-sized chunks at natural breath points, keeping
+// the punctuation attached to the clause it closes — this is what lets us
+// pause WITHIN a line, not just at the end of it.
+function splitIntoClauses(line){
+  const parts = line.split(/(?<=[,;:—-])\s+/).filter(Boolean);
+  return parts.length ? parts : [line];
+}
+
+function pauseForClause(clause, isEndOfLine){
+  const trimmed = clause.trim();
+  if(!trimmed) return 550; // stanza break — a real breath between stanzas
   const last = trimmed[trimmed.length - 1];
-  if(last === '.' || last === '!' || last === '?') return 420;
-  if(last === ',' || last === ';' || last === ':') return 260;
-  return 160;
+  if(last === '.' || last === '!') return isEndOfLine ? 460 : 380;
+  if(last === '?') return isEndOfLine ? 520 : 420; // let a question land
+  if(last === '—' || last === '-') return 340; // dramatic dash pause
+  if(last === ',') return 220;
+  if(last === ';' || last === ':') return 300;
+  return isEndOfLine ? 260 : 90; // end of line with no punctuation still gets a small breath
+}
+
+function pitchForClause(clause, basePitch){
+  const trimmed = clause.trim();
+  const last = trimmed[trimmed.length - 1];
+  if(last === '?') return basePitch + 0.09;  // rising intonation for questions
+  if(last === '.' || last === '!') return basePitch - 0.04; // settle on resolution
+  if(last === '—' || last === '-') return basePitch + 0.03; // slight lift before a turn
+  return basePitch; // commas/continuations stay neutral, mid-thought
+}
+
+function rateForClause(clause, baseRate){
+  const words = clause.trim().split(/\s+/).filter(Boolean);
+  if(words.length > 0 && words.length <= 3) return baseRate - 0.09; // slow down for weight
+  return baseRate;
+}
+
+// Build the full clause queue up front so we know, for every clause,
+// which poem-display line it belongs to (for highlighting) and whether
+// it's the last clause in that line (for end-of-line pause/pitch).
+function buildClauseQueue(lines){
+  const queue = [];
+  lines.forEach((line, lineIndex) => {
+    if(!line.trim()){
+      queue.push({ text: '', lineIndex, isEndOfLine: true });
+      return;
+    }
+    const clauses = splitIntoClauses(line);
+    clauses.forEach((clause, i) => {
+      queue.push({ text: clause, lineIndex, isEndOfLine: i === clauses.length - 1 });
+    });
+  });
+  return queue;
 }
 
 function speakLine(){
@@ -877,31 +921,37 @@ function speakLine(){
     isReciting = false;
     return;
   }
-  const line = reciteQueue[reciteIndex];
+  const item = reciteQueue[reciteIndex];
   const allLines = poemDisplay.querySelectorAll('.p-line');
   allLines.forEach((el, i) => {
-    el.classList.toggle('active', i === reciteIndex);
-    el.classList.toggle('done', i < reciteIndex);
+    el.classList.toggle('active', i === item.lineIndex);
+    el.classList.toggle('done', i < item.lineIndex);
   });
 
-  if(!line.trim()){
+  if(!item.text.trim()){
     reciteIndex++;
-    setTimeout(speakLine, 500); // longer pause on blank lines, like a stanza break
+    setTimeout(speakLine, pauseForClause('', true));
     return;
   }
 
-  const utterance = new SpeechSynthesisUtterance(line.trim());
+  const utterance = new SpeechSynthesisUtterance(item.text.trim());
   const chosen = availableVoices[parseInt(reciteVoiceSelect.value, 10)];
   if(chosen) utterance.voice = chosen;
-  // small human-like variance so every line doesn't land at the exact same
-  // rate/pitch — real readers drift slightly line to line
-  const jitterRate = (Math.random() - 0.5) * 0.06;
-  const jitterPitch = (Math.random() - 0.5) * 0.08;
-  utterance.rate = Math.max(0.4, parseFloat(reciteRate.value) + jitterRate);
-  utterance.pitch = Math.max(0.5, parseFloat(recitePitch.value) + jitterPitch);
+
+  const baseRate = parseFloat(reciteRate.value);
+  const basePitch = parseFloat(recitePitch.value);
+  // small human-like variance so no two clauses land at the exact same
+  // rate/pitch, layered on top of the deliberate prosody adjustments —
+  // real readers drift slightly even within a consistent delivery
+  const jitterRate = (Math.random() - 0.5) * 0.04;
+  const jitterPitch = (Math.random() - 0.5) * 0.05;
+  utterance.rate = Math.max(0.4, rateForClause(item.text, baseRate) + jitterRate);
+  utterance.pitch = Math.max(0.5, pitchForClause(item.text, basePitch) + jitterPitch);
+
   utterance.onend = () => {
+    const pause = pauseForClause(item.text, item.isEndOfLine);
     reciteIndex++;
-    setTimeout(speakLine, pauseForLine(line));
+    setTimeout(speakLine, pause);
   };
   utterance.onerror = () => { reciteIndex++; speakLine(); };
   window.speechSynthesis.speak(utterance);
@@ -911,10 +961,11 @@ document.getElementById('recite-play').addEventListener('click', () => {
   const text = reciteInput.value.trim();
   if(!text) return;
   window.speechSynthesis.cancel();
-  reciteQueue = text.split('\n');
+  const lines = text.split('\n');
+  reciteQueue = buildClauseQueue(lines);
   reciteIndex = 0;
   isReciting = true;
-  renderPoemDisplay(reciteQueue);
+  renderPoemDisplay(lines);
   speakLine();
 });
 document.getElementById('recite-stop').addEventListener('click', () => {
