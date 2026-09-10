@@ -17,14 +17,20 @@ class MweshNeuralEngine {
     this.vocabSize = manifest.vocab_size;
     this.embedDim = manifest.embed_dim;
     this.hiddenDim = manifest.hidden_dim;
+    this.numLayers = manifest.num_layers || 2;
     this.stoi = manifest.stoi;
     this.itos = manifest.itos;
     this.tensors = Object.fromEntries(
       Object.entries(manifest.tensors).map(([name, tensor]) => [
         name,
-        new Float32Array(weights, tensor.offset, tensor.length)
+        tensor.dtype === 'int8'
+          ? new Int8Array(weights, tensor.offset, tensor.length)
+          : new Float32Array(weights, tensor.offset, tensor.length)
       ])
     );
+    this.quantized = manifest.tensors && Object.values(manifest.tensors).some(t => t.dtype === 'int8');
+    this.scales = manifest.scales || {};
+    this.zeroPoints = manifest.zero_points || {};
     this.poemLines = [];
     this.usedLines = new Set();
     this.knownWords = new Set();
@@ -71,6 +77,11 @@ class MweshNeuralEngine {
     const biasHidden = this.tensors[`lstm.bias_hh_l${layer}`];
     const nextHidden = new Float32Array(this.hiddenDim);
     const nextCell = new Float32Array(this.hiddenDim);
+    const qI = this.quantized;
+    const sI = qI ? (this.scales[`lstm.weight_ih_l${layer}`] || 1) : 1;
+    const sH = qI ? (this.scales[`lstm.weight_hh_l${layer}`] || 1) : 1;
+    const zI = qI ? (this.zeroPoints[`lstm.weight_ih_l${layer}`] || 0) : 0;
+    const zH = qI ? (this.zeroPoints[`lstm.weight_hh_l${layer}`] || 0) : 0;
 
     for(let unit = 0; unit < this.hiddenDim; unit++) {
       const gates = [0, 0, 0, 0];
@@ -78,8 +89,14 @@ class MweshNeuralEngine {
         const row = (gate * this.hiddenDim + unit) * inputSize;
         const hiddenRow = (gate * this.hiddenDim + unit) * this.hiddenDim;
         let value = biasInput[gate * this.hiddenDim + unit] + biasHidden[gate * this.hiddenDim + unit];
-        for(let column = 0; column < inputSize; column++) value += weightInput[row + column] * input[column];
-        for(let column = 0; column < this.hiddenDim; column++) value += weightHidden[hiddenRow + column] * hidden[column];
+        for(let column = 0; column < inputSize; column++) {
+          const w = qI ? (weightInput[row + column] - zI) * sI : weightInput[row + column];
+          value += w * input[column];
+        }
+        for(let column = 0; column < this.hiddenDim; column++) {
+          const w = qI ? (weightHidden[hiddenRow + column] - zH) * sH : weightHidden[hiddenRow + column];
+          value += w * hidden[column];
+        }
         gates[gate] = value;
       }
       const inputGate = 1 / (1 + Math.exp(-gates[0]));
@@ -94,7 +111,7 @@ class MweshNeuralEngine {
 
   advance(char, state) {
     let input = this.vectorFor(char);
-    for(let layer = 0; layer < 2; layer++) {
+    for(let layer = 0; layer < this.numLayers; layer++) {
       const result = this.step(input, state.hidden[layer], state.cell[layer], layer);
       state.hidden[layer] = result[0];
       state.cell[layer] = result[1];
@@ -116,8 +133,8 @@ class MweshNeuralEngine {
 
   freshState() {
     return {
-      hidden: [new Float32Array(this.hiddenDim), new Float32Array(this.hiddenDim)],
-      cell: [new Float32Array(this.hiddenDim), new Float32Array(this.hiddenDim)]
+      hidden: Array.from({length: this.numLayers}, () => new Float32Array(this.hiddenDim)),
+      cell: Array.from({length: this.numLayers}, () => new Float32Array(this.hiddenDim))
     };
   }
 
@@ -155,7 +172,7 @@ class MweshNeuralEngine {
     for(const char of context) this.advance(char, state);
     let output = '';
     for(let step = 0; step < 260; step++){
-      const index = this.sampleTopP(this.logits(state.hidden[1]), temperature, 0.9);
+      const index = this.sampleTopP(this.logits(state.hidden[this.numLayers - 1]), temperature, 0.9);
       const char = this.itos[String(index)] ?? ' ';
       if(char === '\n'){
         if(output.trim().length >= 14 && this.endsPunctuation(output)) break;
