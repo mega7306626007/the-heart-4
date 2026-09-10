@@ -280,6 +280,43 @@ section{padding:3.5rem 1.6rem;}
   letter-spacing:0.04em;
 }
 
+/* Listen button */
+.listen-btn{
+  display:inline-flex;
+  align-items:center;
+  gap:0.4rem;
+  margin-top:0.8rem;
+  padding:0.45rem 1rem;
+  font:inherit;
+  font-size:0.8rem;
+  font-weight:600;
+  letter-spacing:0.03em;
+  background:var(--charcoal);
+  color:var(--parchment);
+  border:1px solid rgba(255,255,255,0.15);
+  border-radius:4px;
+  cursor:pointer;
+  transition:all 0.2s ease;
+}
+.listen-btn:hover{
+  background:#3a3a3a;
+  border-color:rgba(255,255,255,0.25);
+}
+.listen-btn.playing{
+  background:var(--teal);
+  border-color:var(--teal);
+  color:#fff;
+  animation:pulse-glow 1.5s ease-in-out infinite;
+}
+.poem-card.reciting{
+  border-color:var(--teal);
+  box-shadow:0 0 20px rgba(47,111,98,0.15);
+}
+@keyframes pulse-glow{
+  0%,100%{box-shadow:0 0 0 0 rgba(47,111,98,0.4)}
+  50%{box-shadow:0 0 12px 4px rgba(47,111,98,0.2)}
+}
+
 /* ============ BOOK ============ */
 .book{
   max-width:1000px; margin:0 auto;

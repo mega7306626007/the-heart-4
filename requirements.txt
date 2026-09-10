@@ -1,0 +1,19 @@
+# Mwesh Poetry Voice System
+# =========================
+# Install with: pip install -r requirements.txt
+
+# Core TTS
+piper-tts>=1.2.0
+
+# Voice recording
+sounddevice>=0.4.6
+numpy>=1.24.0
+
+# Voice training (optional, for training custom voice)
+# Uncomment these lines when training:
+# piper-train>=1.0.0
+# torch>=2.0.0
+# torchaudio>=2.0.0
+
+# Server (already included with piper-tts)
+# No additional server dependencies needed

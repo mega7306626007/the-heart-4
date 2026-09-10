@@ -1,0 +1,210 @@
+/* ============================================================
+   MWESH VOICE — tts.js
+   Frontend audio player for poem recitation.
+   Connects to the local TTS server (tts-server.py) for
+   custom voice playback, with Web Speech API fallback.
+   ============================================================ */
+
+const MweshVoice = (() => {
+  // Config
+  const TTS_SERVER = 'http://localhost:5111';
+  const HEALTH_CHECK_TIMEOUT = 2000;
+
+  // State
+  let serverAvailable = false;
+  let currentAudio = null;
+  let currentButton = null;
+  let currentCard = null;
+
+  // ---------- Server Detection ----------
+  async function checkServer() {
+    try {
+      const res = await fetch(`${TTS_SERVER}/health`, {
+        signal: AbortSignal.timeout(HEALTH_CHECK_TIMEOUT)
+      });
+      const data = await res.json();
+      serverAvailable = data.ok === true;
+    } catch {
+      serverAvailable = false;
+    }
+    return serverAvailable;
+  }
+
+  // ---------- Audio Playback ----------
+  async function speakPoem(text, button, card) {
+    // Stop any current playback
+    stop();
+
+    currentButton = button;
+    currentCard = card;
+
+    // Update UI
+    button.textContent = '◼ Stop';
+    button.classList.add('playing');
+    if (card) card.classList.add('reciting');
+
+    if (serverAvailable) {
+      await speakViaServer(text);
+    } else {
+      speakViaBrowser(text);
+    }
+  }
+
+  async function speakViaServer(text) {
+    try {
+      const res = await fetch(`${TTS_SERVER}/speak`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text })
+      });
+
+      if (!res.ok) throw new Error('Server error');
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+
+      currentAudio = new Audio(url);
+      currentAudio.onended = () => {
+        resetUI();
+        URL.revokeObjectURL(url);
+      };
+      currentAudio.onerror = () => {
+        resetUI();
+        URL.revokeObjectURL(url);
+      };
+      currentAudio.play();
+
+    } catch (err) {
+      console.error('TTS server error, falling back to browser:', err);
+      speakViaBrowser(text);
+    }
+  }
+
+  function speakViaBrowser(text) {
+    if (!('speechSynthesis' in window)) {
+      alert('Your browser does not support speech synthesis.');
+      resetUI();
+      return;
+    }
+
+    // Use the best available voice
+    const voices = speechSynthesis.getVoices();
+    const preferred = voices.find(v =>
+      v.name.includes('Google') && v.lang.startsWith('en')
+    ) || voices.find(v => v.lang.startsWith('en')) || voices[0];
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.voice = preferred;
+    utterance.rate = 0.78;
+    utterance.pitch = 0.95;
+
+    utterance.onend = () => resetUI();
+    utterance.onerror = () => resetUI();
+
+    currentAudio = { cancel: () => speechSynthesis.cancel() };
+    speechSynthesis.speak(utterance);
+  }
+
+  function stop() {
+    if (currentAudio) {
+      if (currentAudio instanceof Audio) {
+        currentAudio.pause();
+        currentAudio.currentTime = 0;
+      } else if (currentAudio.cancel) {
+        currentAudio.cancel();
+      }
+      currentAudio = null;
+    }
+    resetUI();
+  }
+
+  function resetUI() {
+    if (currentButton) {
+      currentButton.textContent = '▶ Listen';
+      currentButton.classList.remove('playing');
+    }
+    if (currentCard) {
+      currentCard.classList.remove('reciting');
+    }
+    currentButton = null;
+    currentCard = null;
+    currentAudio = null;
+  }
+
+  // ---------- UI Creation ----------
+  function createListenButton(poemIndex) {
+    const btn = document.createElement('button');
+    btn.className = 'listen-btn';
+    btn.textContent = '▶ Listen';
+    btn.setAttribute('aria-label', 'Listen to this poem');
+    btn.dataset.poemIndex = poemIndex;
+
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      if (btn.classList.contains('playing')) {
+        stop();
+        return;
+      }
+
+      // Stop any other playing poem
+      document.querySelectorAll('.listen-btn.playing').forEach(b => {
+        b.textContent = '▶ Listen';
+        b.classList.remove('playing');
+      });
+      document.querySelectorAll('.poem-card.reciting').forEach(c => {
+        c.classList.remove('reciting');
+      });
+
+      // Get poem text
+      const card = btn.closest('.poem-card');
+      const pre = card.querySelector('pre');
+      if (pre) {
+        speakPoem(pre.textContent, btn, card);
+      }
+    });
+
+    return btn;
+  }
+
+  // ---------- Initialization ----------
+  function init() {
+    // Check if TTS server is running
+    checkServer().then(available => {
+      if (available) {
+        console.log('[MweshVoice] TTS server connected at', TTS_SERVER);
+      } else {
+        console.log('[MweshVoice] TTS server not found, using browser speech');
+      }
+    });
+
+    // Add listen buttons to all poem cards
+    const poemCards = document.querySelectorAll('.poem-card');
+    poemCards.forEach((card, index) => {
+      const btn = createListenButton(index);
+      card.appendChild(btn);
+    });
+
+    // Preload voices for browser fallback
+    if ('speechSynthesis' in window) {
+      speechSynthesis.getVoices();
+      speechSynthesis.onvoiceschanged = () => speechSynthesis.getVoices();
+    }
+  }
+
+  // ---------- Public API ----------
+  return {
+    init,
+    checkServer,
+    stop,
+    isServerAvailable: () => serverAvailable
+  };
+})();
+
+// Initialize when DOM is ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', MweshVoice.init);
+} else {
+  MweshVoice.init();
+}
