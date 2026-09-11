@@ -19,5 +19,6 @@ voice-output/
 *.onnx
 # training logs
 train-progress.log
+train-*.log
 tts-*.txt
 train-large.py
