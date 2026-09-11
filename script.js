@@ -805,6 +805,18 @@ const recitePitch = document.getElementById('recite-pitch');
 const reciteVoiceSelect = document.getElementById('recite-voice');
 const poemDisplay = document.getElementById('poem-display');
 
+// Piper 4-voice server (wired properly - 2M2F)
+const PIPER_SERVER = 'http://localhost:5111';
+const PIPER_VOICES = {
+  lessac: { label: 'Lessac — M (warm) • Piper', gender: 'M' },
+  ryan: { label: 'Ryan — M (deep) • Piper', gender: 'M' },
+  amy: { label: 'Amy — F (bright) • Piper', gender: 'F' },
+  kathleen: { label: 'Kathleen — F (soft) • Piper', gender: 'F' },
+};
+let piperAvailable = false;
+fetch(`${PIPER_SERVER}/health`, { signal: AbortSignal.timeout(2000) }).then(r=>r.json()).then(d=>{ piperAvailable = d.ok===true; if(piperAvailable) populateVoiceList(); }).catch(()=>{});
+let piperAudio = null;
+
 // The whole recitation feature is guarded: if the browser has no
 // speechSynthesis (or it throws), the rest of the page still works.
 try{
@@ -835,18 +847,29 @@ function pickBestDefaultVoice(voices){
 
 function populateVoiceList(){
   availableVoices = window.speechSynthesis.getVoices();
-  if(!availableVoices.length) return;
-  reciteVoiceSelect.innerHTML = availableVoices
-    .map((v, i) => `<option value="${i}">${v.name} (${v.lang})</option>`)
-    .join('');
-  const best = pickBestDefaultVoice(availableVoices);
-  const bestIndex = availableVoices.indexOf(best);
-  if(bestIndex > -1) reciteVoiceSelect.value = String(bestIndex);
+  const piperOpts = piperAvailable ? Object.entries(PIPER_VOICES).map(([id, v]) => `<option value="piper:${id}">${v.label}</option>`).join('') : '';
+  const browserOpts = availableVoices.map((v, i) => `<option value="browser:${i}">${v.name} (${v.lang}) — browser</option>`).join('');
+  reciteVoiceSelect.innerHTML = piperOpts + (piperOpts && browserOpts ? `<optgroup label="Browser fallback">${browserOpts}</optgroup>` : browserOpts);
+  if(piperAvailable){
+    const saved = localStorage.getItem('mweshReciteVoice') || 'piper:lessac';
+    if ([...reciteVoiceSelect.options].some(o=>o.value===saved)) reciteVoiceSelect.value = saved;
+    else reciteVoiceSelect.value = 'piper:lessac';
+  } else {
+    const best = pickBestDefaultVoice(availableVoices);
+    const bestIndex = availableVoices.indexOf(best);
+    if(bestIndex > -1) reciteVoiceSelect.value = `browser:${bestIndex}`;
+  }
+  document.getElementById('voice-quality-note').textContent = piperAvailable
+    ? 'Piper 2M2F local voices available — your 4-voice recitor. If server off, browser fallback is used.'
+    : 'Piper server not found (run python tts-server.py) — using browser voices. Start server for 2M2F.';
 }
 populateVoiceList();
 if('onvoiceschanged' in window.speechSynthesis){
   window.speechSynthesis.onvoiceschanged = populateVoiceList;
 }
+reciteVoiceSelect.addEventListener('change', () => {
+  localStorage.setItem('mweshReciteVoice', reciteVoiceSelect.value);
+});
 
 function renderPoemDisplay(lines){
   poemDisplay.innerHTML = lines
@@ -957,19 +980,67 @@ function speakLine(){
   window.speechSynthesis.speak(utterance);
 }
 
-document.getElementById('recite-play').addEventListener('click', () => {
+async function playViaPiper(text, voiceId, lines){
+  try{
+    if(piperAudio){ piperAudio.pause(); piperAudio = null; }
+    window.speechSynthesis.cancel();
+    const res = await fetch(`${PIPER_SERVER}/speak`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, voice: voiceId })
+    });
+    if(!res.ok) throw new Error('Piper error');
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    piperAudio = new Audio(url);
+    // Highlight lines sequentially while Piper audio plays (estimated)
+    const allLines = poemDisplay.querySelectorAll('.p-line');
+    let idx = 0;
+    const highlightNext = () => {
+      allLines.forEach((el,i)=>{ el.classList.toggle('active', i===idx); el.classList.toggle('done', i<idx); });
+      idx++;
+      if(idx < allLines.length) setTimeout(highlightNext, Math.max(800, 1800 + text.length*4/allLines.length));
+    };
+    highlightNext();
+    piperAudio.onended = () => {
+      allLines.forEach(el=>el.classList.remove('active'));
+      URL.revokeObjectURL(url);
+      isReciting = false;
+    };
+    piperAudio.onerror = () => { URL.revokeObjectURL(url); isReciting = false; };
+    await piperAudio.play();
+  } catch(e){
+    console.error('Piper recite failed, fallback to browser', e);
+    // fallback to browser prosody
+    reciteQueue = buildClauseQueue(lines);
+    reciteIndex = 0;
+    isReciting = true;
+    speakLine();
+  }
+}
+
+document.getElementById('recite-play').addEventListener('click', async () => {
   const text = reciteInput.value.trim();
   if(!text) return;
-  window.speechSynthesis.cancel();
   const lines = text.split('\n');
-  reciteQueue = buildClauseQueue(lines);
-  reciteIndex = 0;
-  isReciting = true;
   renderPoemDisplay(lines);
-  speakLine();
+  const val = reciteVoiceSelect.value || '';
+  if(val.startsWith('piper:') && piperAvailable){
+    const voiceId = val.split(':')[1];
+    isReciting = true;
+    await playViaPiper(text, voiceId, lines);
+  } else {
+    window.speechSynthesis.cancel();
+    if(piperAudio){ piperAudio.pause(); piperAudio = null; }
+    reciteQueue = buildClauseQueue(lines);
+    reciteIndex = 0;
+    isReciting = true;
+    speakLine();
+  }
 });
 document.getElementById('recite-stop').addEventListener('click', () => {
   window.speechSynthesis.cancel();
+  if(piperAudio){ piperAudio.pause(); piperAudio.currentTime = 0; piperAudio = null; }
   isReciting = false;
   poemDisplay.querySelectorAll('.p-line.active').forEach(el => el.classList.remove('active'));
 });
