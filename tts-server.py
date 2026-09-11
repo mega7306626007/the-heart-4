@@ -40,19 +40,22 @@ CACHE_DIR = Path(__file__).parent / "voice-cache"
 DEFAULT_SPEED = 1.0
 DEFAULT_PITCH = 1.0
 
-# ---------- Piper TTS Wrapper ----------
-_piper_model = None
+# ---------- Piper TTS Wrapper (4 voices: 2M+2F) ----------
+_piper_models = {}
 _piper_lock = threading.Lock()
 
-def load_piper():
-    """Load the Piper TTS model (lazy, singleton)."""
-    global _piper_model
-    if _piper_model is not None:
-        return _piper_model
+def load_piper(voice_name=None):
+    """Load the Piper TTS model (lazy, per-voice)."""
+    global _piper_models
+    # Default to lessac (M) if no voice specified - matches 2M2F setup: lessac(M), ryan(M), amy(F), kathleen(F)
+    if voice_name is None:
+        voice_name = "lessac"
+    if voice_name in _piper_models:
+        return _piper_models[voice_name]
 
     with _piper_lock:
-        if _piper_model is not None:
-            return _piper_model
+        if voice_name in _piper_models:
+            return _piper_models[voice_name]
 
         try:
             from piper import PiperVoice
@@ -61,34 +64,43 @@ def load_piper():
             print("  Run: pip install piper-tts")
             sys.exit(1)
 
-        # Find the .onnx model file
-        onnx_files = list(VOICE_DIR.glob("*.onnx"))
-        if not onnx_files:
-            print(f"[tts-server] ERROR: No .onnx voice model found in {VOICE_DIR}")
-            print("  Run train-voice.py first to create one.")
-            sys.exit(1)
+        # Find the requested voice or fallback to first available
+        model_path = VOICE_DIR / f"{voice_name}.onnx"
+        if not model_path.exists():
+            onnx_files = list(VOICE_DIR.glob("*.onnx"))
+            if not onnx_files:
+                print(f"[tts-server] ERROR: No .onnx voice model found in {VOICE_DIR}")
+                print("  Run train-voice.py first to create one.")
+                sys.exit(1)
+            model_path = onnx_files[0]
+            print(f"[tts-server] Voice '{voice_name}' not found, using {model_path.name}")
 
-        model_path = onnx_files[0]
-        # Check for matching .json config
         config_path = model_path.with_suffix(".onnx.json")
         if not config_path.exists():
-            config_path = None
+            # Try with .onnx.json double suffix variant
+            alt = Path(str(model_path) + ".json")
+            if alt.exists():
+                config_path = alt
+            else:
+                config_path = None
 
         print(f"[tts-server] Loading voice model: {model_path.name}")
-        _piper_model = PiperVoice.load(
+        model = PiperVoice.load(
             str(model_path),
-            config_path=str(config_path) if config_path else None
+            config_path=str(config_path) if config_path and config_path.exists() else None
         )
-        print(f"[tts-server] Voice model loaded successfully.")
-        return _piper_model
+        print(f"[tts-server] Voice {voice_name} loaded successfully.")
+        _piper_models[voice_name] = model
+        return model
 
 
-def synthesize(text, speed=DEFAULT_SPEED, pitch=DEFAULT_PITCH):
+def synthesize(text, speed=DEFAULT_SPEED, pitch=DEFAULT_PITCH, voice="lessac"):
     """
     Synthesize text to WAV bytes using Piper.
     Returns bytes of a WAV file.
+    voice: lessac(M), ryan(M), amy(F), kathleen(F) — 2M2F
     """
-    model = load_piper()
+    model = load_piper(voice)
 
     # Clean text: normalize whitespace, handle line breaks for poetry
     lines = text.strip().split("\n")
@@ -152,13 +164,16 @@ class SpeakHandler(BaseHTTPRequestHandler):
             text = body.get("text", "").strip()
             speed = float(body.get("speed", DEFAULT_SPEED))
             pitch = float(body.get("pitch", DEFAULT_PITCH))
+            voice = str(body.get("voice", "lessac")).strip().lower()
+            if voice not in ["lessac", "ryan", "amy", "kathleen"]:
+                voice = "lessac"
 
             if not text:
                 self.send_error(400, "No text provided")
                 return
 
-            # Check cache
-            cache_key = get_cache_key(text, speed, pitch)
+            # Check cache (per voice)
+            cache_key = get_cache_key(f"{voice}|{text}", speed, pitch)
             cache_path = CACHE_DIR / f"{cache_key}.wav"
             CACHE_DIR.mkdir(exist_ok=True)
 
@@ -166,9 +181,9 @@ class SpeakHandler(BaseHTTPRequestHandler):
                 wav_bytes = cache_path.read_bytes()
             else:
                 t0 = time.time()
-                wav_bytes = synthesize(text, speed, pitch)
+                wav_bytes = synthesize(text, speed, pitch, voice)
                 elapsed = time.time() - t0
-                print(f"[tts-server] Synthesized {len(text)} chars in {elapsed:.1f}s")
+                print(f"[tts-server] Synthesized {len(text)} chars voice={voice} in {elapsed:.1f}s")
 
                 # Cache it
                 cache_path.write_bytes(wav_bytes)
@@ -214,9 +229,9 @@ if __name__ == "__main__":
     print(f"[tts-server] Mwesh Poetry Voice Server")
     print(f"[tts-server] Listening on http://localhost:{PORT}")
     print(f"[tts-server] Voice models in: {VOICE_DIR}")
-    print(f"[tts-server] POST /speak {{\"text\": \"poem here\"}} → audio/wav")
-    print(f"[tts-server] GET /voices → list available voices")
-    print(f"[tts-server] GET /health → health check")
+    print(f"[tts-server] POST /speak {{\"text\": \"poem here\"}} -> audio/wav")
+    print(f"[tts-server] GET /voices -> list available voices")
+    print(f"[tts-server] GET /health -> health check")
     print()
 
     server = HTTPServer((HOST, PORT), SpeakHandler)

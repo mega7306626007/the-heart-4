@@ -280,6 +280,21 @@ section{padding:3.5rem 1.6rem;}
   letter-spacing:0.04em;
 }
 
+/* 4-voice selector (2M2F) */
+.voice-selector{
+  display:flex; align-items:center; gap:0.8rem; flex-wrap:wrap;
+  margin-bottom:1.4rem; padding:0.8rem 1rem;
+  background:#fff; border:1px solid var(--paper-line); border-radius:6px;
+  font-family:var(--font-code); font-size:0.85rem;
+}
+.voice-selector label{font-weight:600; color:var(--ink);}
+.voice-selector select{
+  padding:0.4rem 0.6rem; border:1px solid var(--paper-line); border-radius:4px;
+  background:#fff; font-family:var(--font-code); font-size:0.85rem;
+}
+.voice-selector .voice-hint{opacity:0.6; font-size:0.78rem;}
+@media (max-width: 640px){ .voice-selector{flex-direction:column; align-items:flex-start;} }
+
 /* Listen button */
 .listen-btn{
   display:inline-flex;

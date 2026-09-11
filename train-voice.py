@@ -40,7 +40,7 @@ BATCH_SIZE = 16     # Reduce if you run out of GPU memory
 LEARNING_RATE = 0.0001
 HIDDEN_SIZE = 256
 NUM_LAYERS = 6
-NUM_SPESKER_EMBEDS = 0  # Single speaker
+NUM_SPESKER_EMBEDS = 4  # Single speaker
 
 
 def check_training_prereqs():

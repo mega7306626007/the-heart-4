@@ -9,12 +9,21 @@ const MweshVoice = (() => {
   // Config
   const TTS_SERVER = 'http://localhost:5111';
   const HEALTH_CHECK_TIMEOUT = 2000;
+  const VOICES_4 = {
+    lessac: { label: 'Lessac — M (warm)', gender: 'M' },
+    ryan: { label: 'Ryan — M (deep)', gender: 'M' },
+    amy: { label: 'Amy — F (bright)', gender: 'F' },
+    kathleen: { label: 'Kathleen — F (soft)', gender: 'F' },
+  };
+  const DEFAULT_VOICE = 'lessac';
 
   // State
   let serverAvailable = false;
   let currentAudio = null;
   let currentButton = null;
   let currentCard = null;
+  let currentVoice = localStorage.getItem('mweshVoice') || DEFAULT_VOICE;
+  if (!VOICES_4[currentVoice]) currentVoice = DEFAULT_VOICE;
 
   // ---------- Server Detection ----------
   async function checkServer() {
@@ -55,7 +64,7 @@ const MweshVoice = (() => {
       const res = await fetch(`${TTS_SERVER}/speak`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text })
+        body: JSON.stringify({ text, voice: currentVoice })
       });
 
       if (!res.ok) throw new Error('Server error');
@@ -131,6 +140,36 @@ const MweshVoice = (() => {
     currentAudio = null;
   }
 
+  // ---------- 4-Voice Selector (2M2F) ----------
+  function createVoiceSelector() {
+    if (document.getElementById('mwesh-voice-selector')) return;
+    const poemsSection = document.getElementById('poems');
+    if (!poemsSection) return;
+    const bar = document.createElement('div');
+    bar.id = 'mwesh-voice-selector';
+    bar.className = 'voice-selector';
+    bar.innerHTML = `
+      <label for="mwesh-voice">Reciter voice:</label>
+      <select id="mwesh-voice" aria-label="Choose reciter voice">
+        ${Object.entries(VOICES_4).map(([id, v]) => `<option value="${id}" ${id===currentVoice?'selected':''}>${v.label}</option>`).join('')}
+      </select>
+      <span class="voice-hint">${serverAvailable ? 'via Piper (local)' : 'browser fallback if server off'}</span>
+    `;
+    const grid = document.getElementById('poem-grid');
+    if (grid) poemsSection.insertBefore(bar, grid);
+    else poemsSection.appendChild(bar);
+    const sel = bar.querySelector('#mwesh-voice');
+    sel.addEventListener('change', (e) => {
+      currentVoice = e.target.value;
+      localStorage.setItem('mweshVoice', currentVoice);
+    });
+  }
+
+  function updateVoiceHint() {
+    const hint = document.querySelector('#mwesh-voice-selector .voice-hint');
+    if (hint) hint.textContent = serverAvailable ? 'via Piper (local 2M2F)' : 'browser fallback if server off';
+  }
+
   // ---------- UI Creation ----------
   function createListenButton(poemIndex) {
     const btn = document.createElement('button');
@@ -173,11 +212,13 @@ const MweshVoice = (() => {
     // Check if TTS server is running
     checkServer().then(available => {
       if (available) {
-        console.log('[MweshVoice] TTS server connected at', TTS_SERVER);
+        console.log('[MweshVoice] TTS server connected at', TTS_SERVER, 'voices', Object.keys(VOICES_4), 'current', currentVoice);
       } else {
         console.log('[MweshVoice] TTS server not found, using browser speech');
       }
+      updateVoiceHint();
     });
+    createVoiceSelector();
 
     // Add listen buttons to all poem cards
     const poemCards = document.querySelectorAll('.poem-card');

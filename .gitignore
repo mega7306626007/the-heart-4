@@ -6,3 +6,18 @@ __pycache__/
 .env*
 node_modules/
 package-lock.json
+# TTS large data - local only, not for Vercel/GitHub (60MB per .onnx, 900MB archive)
+voices/
+voice-samples/
+voice-samples-4spk/
+voice-samples-archive/
+voice-cache/
+voice-dataset/
+voice-output/
+*.wav
+*.mp3
+*.onnx
+# training logs
+train-progress.log
+tts-*.txt
+train-large.py
