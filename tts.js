@@ -52,6 +52,13 @@ const MweshVoice = (() => {
     button.classList.add('playing');
     if (card) card.classList.add('reciting');
 
+    // Re-check server if it was unavailable at load (server may have started since)
+    if (!serverAvailable) {
+      await checkServer();
+      updateVoiceHint();
+    }
+    console.log('[MweshVoice] speaking with voice', currentVoice, 'server', serverAvailable);
+
     if (serverAvailable) {
       await speakViaServer(text);
     } else {
@@ -96,11 +103,19 @@ const MweshVoice = (() => {
       return;
     }
 
-    // Use the best available voice
+    // Fallback: honour the 2M2F selector even without Piper, by picking browser voice gender
     const voices = speechSynthesis.getVoices();
-    const preferred = voices.find(v =>
-      v.name.includes('Google') && v.lang.startsWith('en')
-    ) || voices.find(v => v.lang.startsWith('en')) || voices[0];
+    const wantFemale = VOICES_4[currentVoice]?.gender === 'F';
+    let preferred = null;
+    if (wantFemale) {
+      preferred = voices.find(v => v.lang.startsWith('en') && /female|amy|kathleen|samantha|zira/i.test(v.name))
+               || voices.find(v => v.lang.startsWith('en') && v.name.toLowerCase().includes('female'))
+               || voices.find(v => v.lang.startsWith('en'));
+    } else {
+      preferred = voices.find(v => v.lang.startsWith('en') && /male|lessac|ryan|david|mark/i.test(v.name))
+               || voices.find(v => v.lang.startsWith('en'));
+    }
+    if (!preferred) preferred = voices.find(v => v.name.includes('Google') && v.lang.startsWith('en')) || voices[0];
 
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.voice = preferred;
@@ -162,6 +177,11 @@ const MweshVoice = (() => {
     sel.addEventListener('change', (e) => {
       currentVoice = e.target.value;
       localStorage.setItem('mweshVoice', currentVoice);
+      console.log('[MweshVoice] voice changed to', currentVoice);
+      // Re-check server so hint updates and next play uses correct voice
+      checkServer().then(updateVoiceHint);
+      // If a poem is currently playing, stop it so next click uses new voice
+      stop();
     });
   }
 
