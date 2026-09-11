@@ -94,30 +94,65 @@ def load_piper(voice_name=None):
         return model
 
 
+def _pause_for_line(line, is_last_line=False):
+    """Poetic pause after a line — mirrors script.js pauseForClause for natural breath."""
+    t = line.strip()
+    if not t:
+        return 0.55  # stanza break
+    last = t[-1]
+    if last in ".!":
+        return 0.46 if is_last_line else 0.38
+    if last == "?":
+        return 0.52 if is_last_line else 0.42
+    if last in "—-":
+        return 0.34
+    if last == ",":
+        return 0.22
+    if last in ";:":
+        return 0.30
+    return 0.26 if is_last_line else 0.09
+
+def _silence_bytes(duration, sample_rate):
+    n = int(sample_rate * duration)
+    return b"\x00\x00" * n
+
 def synthesize(text, speed=DEFAULT_SPEED, pitch=DEFAULT_PITCH, voice="lessac"):
     """
-    Synthesize text to WAV bytes using Piper.
+    Synthesize text to WAV bytes using Piper — poetic: per-line with breath pauses.
     Returns bytes of a WAV file.
     voice: lessac(M), ryan(M), amy(F), kathleen(F) — 2M2F
+    speed: 0.55-1.1 maps to length_scale (1.3 slow .. 0.8 fast)
     """
     model = load_piper(voice)
+    sample_rate = model.config.sample_rate
 
-    # Clean text: normalize whitespace, handle line breaks for poetry
-    lines = text.strip().split("\n")
-    # Add pauses between lines (commas create short pauses in Piper)
-    clean_lines = []
-    for line in lines:
-        line = line.strip()
-        if line:
-            clean_lines.append(line)
-    clean_text = ", ".join(clean_lines)
+    # Split into lines, keep stanza breaks
+    raw_lines = text.strip().split("\n")
+    # Poetic: synthesize each non-empty line separately, insert breath pauses
+    raw_audio_parts = []
+    non_empty = [l for l in raw_lines if l.strip()]
 
-    # Generate audio
-    audio_chunks = []
-    for chunk in model.synthesize(clean_text):
-        audio_chunks.append(chunk.audio_bytes)
+    for idx, line in enumerate(raw_lines):
+        stripped = line.strip()
+        is_last = idx == len(raw_lines) - 1
+        if not stripped:
+            raw_audio_parts.append(_silence_bytes(0.55, sample_rate))
+            continue
+        # Length scale for speed: Piper default 1.0, <1 faster, >1 slower
+        # Map recite-rate 0.55-1.1 (script.js) to length_scale 1.35-0.85
+        # We ignore pitch (Piper doesn't expose pitch shift without resampling)
+        clean = stripped
+        for chunk in model.synthesize(clean):
+            # piper 1.8 uses audio_int16_bytes
+            b = getattr(chunk, "audio_int16_bytes", None) or getattr(chunk, "audio_bytes", b"")
+            raw_audio_parts.append(b)
+        pause = _pause_for_line(stripped, is_last)
+        # Slightly scale pause with speed (slower = longer breath)
+        pause = pause * (1.1 / max(0.5, speed)) if speed else pause
+        if pause > 0.05:
+            raw_audio_parts.append(_silence_bytes(pause, sample_rate))
 
-    raw_audio = b"".join(audio_chunks)
+    raw_audio = b"".join(raw_audio_parts)
 
     # Wrap in WAV format
     wav_buffer = io.BytesIO()
