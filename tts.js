@@ -9,11 +9,9 @@ const MweshVoice = (() => {
   // Config
   const TTS_SERVER = 'http://localhost:5111';
   const HEALTH_CHECK_TIMEOUT = 2000;
+  // ONE voice with ALL poets patterns — single, unified reciter (was 2M2F)
   const VOICES_4 = {
-    lessac: { label: 'Lessac — M (warm)', gender: 'M' },
-    ryan: { label: 'Ryan — M (deep)', gender: 'M' },
-    amy: { label: 'Amy — F (bright)', gender: 'F' },
-    kathleen: { label: 'Kathleen — F (soft)', gender: 'F' },
+    lessac: { label: 'Mwesh — poetic (all poets)', gender: 'M' },
   };
   const DEFAULT_VOICE = 'lessac';
 

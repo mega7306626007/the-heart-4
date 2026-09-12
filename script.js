@@ -805,13 +805,10 @@ const recitePitch = document.getElementById('recite-pitch');
 const reciteVoiceSelect = document.getElementById('recite-voice');
 const poemDisplay = document.getElementById('poem-display');
 
-// Piper 4-voice server (wired properly - 2M2F)
+// Piper ONE voice — all poets patterns, single reciter (was 2M2F)
 const PIPER_SERVER = 'http://localhost:5111';
 const PIPER_VOICES = {
-  lessac: { label: 'Lessac — M (warm) • Piper', gender: 'M' },
-  ryan: { label: 'Ryan — M (deep) • Piper', gender: 'M' },
-  amy: { label: 'Amy — F (bright) • Piper', gender: 'F' },
-  kathleen: { label: 'Kathleen — F (soft) • Piper', gender: 'F' },
+  lessac: { label: 'Mwesh — poetic (all poets) • Piper', gender: 'M' },
 };
 let piperAvailable = false;
 fetch(`${PIPER_SERVER}/health`, { signal: AbortSignal.timeout(2000) }).then(r=>r.json()).then(d=>{ piperAvailable = d.ok===true; if(piperAvailable) populateVoiceList(); }).catch(()=>{});
